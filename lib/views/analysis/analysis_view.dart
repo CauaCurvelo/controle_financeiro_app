@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../view_models/finance_view_model.dart';
-import '../../models/transaction.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../providers/finance_provider.dart';
+import '../../models/transaction.dart';
 
-class AnalysisView extends StatelessWidget {
+class AnalysisView extends ConsumerWidget {
   const AnalysisView({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final financeViewModel = Provider.of<FinanceViewModel>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final financeState = ref.watch(financeProvider);
+    final financeNotifier = ref.read(financeProvider.notifier);
     final currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
     
     // Calcula o progresso do orçamento (exemplo fixo: Orçamento de R$ 2000.0)
     const budget = 2000.0;
-    final expenses = financeViewModel.totalExpense;
+    final expenses = financeState.totalExpense;
     final progress = (expenses / budget).clamp(0.0, 1.0);
 
     return Scaffold(
@@ -96,39 +97,57 @@ class AnalysisView extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: ListView.builder(
-                  itemCount: financeViewModel.transactions.length,
-                  itemBuilder: (context, index) {
-                    final transaction = financeViewModel.transactions[index];
-                    final isIncome = transaction.type == TransactionType.income;
-                    
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        backgroundColor: isIncome ? Colors.green.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2),
-                        child: Icon(
-                          _getIconForCategory(transaction.category),
-                          color: isIncome ? Colors.greenAccent : Colors.orangeAccent,
-                        ),
-                      ),
-                      title: Text(
-                        transaction.title,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: Text(
-                        DateFormat('dd/MM/yyyy').format(transaction.date),
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-                      ),
-                      trailing: Text(
-                        '${isIncome ? '+' : '-'}${currencyFormat.format(transaction.amount)}',
-                        style: TextStyle(
-                          color: isIncome ? Colors.greenAccent : Colors.redAccent,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                child: financeState.transactions.isEmpty
+                  ? const Center(child: Text('Nenhuma movimentação registrada.', style: TextStyle(color: Colors.white54)))
+                  : ListView.builder(
+                      itemCount: financeState.transactions.length,
+                      itemBuilder: (context, index) {
+                        final transaction = financeState.transactions[index];
+                        final isIncome = transaction.type == TransactionType.income;
+                        
+                        return Dismissible(
+                          key: Key(transaction.id),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            color: Colors.redAccent,
+                            child: const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          onDismissed: (direction) {
+                            financeNotifier.deleteTransaction(transaction.id);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Transação removida')),
+                            );
+                          },
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              backgroundColor: isIncome ? Colors.green.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2),
+                              child: Icon(
+                                _getIconForCategory(transaction.category),
+                                color: isIncome ? Colors.greenAccent : Colors.orangeAccent,
+                              ),
+                            ),
+                            title: Text(
+                              transaction.title,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: Text(
+                              DateFormat('dd/MM/yyyy').format(transaction.date),
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                            ),
+                            trailing: Text(
+                              '${isIncome ? '+' : '-'}${currencyFormat.format(transaction.amount)}',
+                              style: TextStyle(
+                                color: isIncome ? Colors.greenAccent : Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
               ),
             ],
           ),
@@ -147,6 +166,8 @@ class AnalysisView extends StatelessWidget {
         return Icons.attach_money;
       case 'Saúde':
         return Icons.local_hospital;
+      case 'Lazer':
+        return Icons.movie;
       default:
         return Icons.category;
     }

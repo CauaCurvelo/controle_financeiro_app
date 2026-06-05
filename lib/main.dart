@@ -1,19 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'view_models/auth_view_model.dart';
-import 'view_models/finance_view_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'views/auth/auth_view.dart';
 import 'views/dashboard/dashboard_view.dart';
 import 'views/analysis/analysis_view.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthViewModel()),
-        ChangeNotifierProvider(create: (_) => FinanceViewModel()),
-      ],
-      child: const ControleFinanceiroApp(),
+    const ProviderScope(
+      child: ControleFinanceiroApp(),
     ),
   );
 }
