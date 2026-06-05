@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/transaction.dart';
 import '../services/db_helper.dart';
+import '../services/cloud_sync_service.dart';
 import 'auth_provider.dart';
 
 final financeProvider = NotifierProvider<FinanceNotifier, FinanceState>(FinanceNotifier.new);
@@ -62,17 +63,20 @@ class FinanceNotifier extends Notifier<FinanceState> {
     if (userId == null) return;
     await DBHelper().insertTransaction(transaction, userId!);
     await _loadTransactions();
+    CloudSyncService.syncToCloud(userId!, state.transactions);
   }
 
   Future<void> deleteTransaction(String id) async {
     if (userId == null) return;
     await DBHelper().deleteTransaction(id);
     await _loadTransactions();
+    CloudSyncService.syncToCloud(userId!, state.transactions);
   }
   
   Future<void> updateTransaction(TransactionItem transaction) async {
     if (userId == null) return;
     await DBHelper().updateTransaction(transaction);
     await _loadTransactions();
+    CloudSyncService.syncToCloud(userId!, state.transactions);
   }
 }
