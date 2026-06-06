@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:ui';
 import '../../providers/auth_provider.dart';
 
 class AuthView extends ConsumerStatefulWidget {
@@ -10,14 +9,30 @@ class AuthView extends ConsumerStatefulWidget {
   ConsumerState<AuthView> createState() => _AuthViewState();
 }
 
-class _AuthViewState extends ConsumerState<AuthView> {
+class _AuthViewState extends ConsumerState<AuthView> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  
+  bool _isPasswordVisible = false;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+    _animationController.forward();
+  }
 
   @override
   void dispose() {
+    _animationController.dispose();
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -25,204 +40,265 @@ class _AuthViewState extends ConsumerState<AuthView> {
   }
 
   void _submit() async {
-    if (_formKey.currentState!.validate()) {
-      final authNotifier = ref.read(authProvider.notifier);
-      final authState = ref.read(authProvider);
-      
-      final success = await authNotifier.authenticate(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-        name: authState.isLogin ? null : _nameController.text.trim(),
-      );
+    if (!_formKey.currentState!.validate()) return;
 
-      if (success && mounted) {
-        Navigator.pushReplacementNamed(context, '/dashboard');
-      } else if (mounted) {
-        final errorMsg = ref.read(authProvider).error ?? 'Erro desconhecido.';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMsg), backgroundColor: Colors.redAccent),
-        );
-      }
+    final auth = ref.read(authProvider.notifier);
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final name = _nameController.text.trim();
+
+    bool success = await auth.authenticate(email, password, name: name);
+
+    if (success && mounted) {
+      Navigator.pushReplacementNamed(context, '/dashboard');
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ref.read(authProvider).error ?? 'Falha na autenticação'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
+  }
+
+  void _switchMode() {
+    ref.read(authProvider.notifier).toggleAuthMode();
+    _animationController.reset();
+    _animationController.forward();
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final authNotifier = ref.read(authProvider.notifier);
 
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF1E1E2C), Color(0xFF232526), Color(0xFF414345)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Background Glow Effect
+          Positioned(
+            top: -100,
+            left: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF6200EA).withValues(alpha: 0.2),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF6200EA).withValues(alpha: 0.2), blurRadius: 100, spreadRadius: 50)
+                ]
+              ),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.account_balance_wallet,
-                      size: 80,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'FinanceApp',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                        child: Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              width: 1.5,
-                            ),
+          Positioned(
+            bottom: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.deepPurpleAccent.withValues(alpha: 0.15),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // App Logo / Title
+                        const Icon(Icons.account_balance_wallet_rounded, size: 80, color: Colors.white),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Controle Financeiro',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.2,
+                            color: Colors.white,
                           ),
-                          child: Column(
-                            children: [
-                              Text(
-                                authState.isLogin ? 'Login' : 'Cadastro',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              if (!authState.isLogin) ...[
-                                TextFormField(
-                                  controller: _nameController,
-                                  style: const TextStyle(color: Colors.white),
-                                  decoration: _buildInputDecoration('Nome', Icons.person),
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Informe seu nome';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-                              ],
-                              TextFormField(
-                                controller: _emailController,
-                                keyboardType: TextInputType.emailAddress,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: _buildInputDecoration('Email', Icons.email),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Informe seu email';
-                                  }
-                                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                                    return 'Informe um email válido';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _passwordController,
-                                obscureText: true,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: _buildInputDecoration('Senha', Icons.lock),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Informe sua senha';
-                                  }
-                                  if (value.length < 6) {
-                                    return 'A senha deve ter no mínimo 6 caracteres';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 32),
-                              SizedBox(
-                                width: double.infinity,
-                                height: 50,
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF6200EA),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          authState.isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta financeira',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        const SizedBox(height: 48),
+
+                        // Form Fields
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeInOut,
+                          child: !authState.isLogin
+                              ? Padding(
+                                  padding: const EdgeInsets.only(bottom: 16.0),
+                                  child: _buildTextField(
+                                    controller: _nameController,
+                                    label: 'Nome Completo',
+                                    icon: Icons.person_outline,
+                                    validator: (v) => v!.isEmpty ? 'Campo obrigatório' : null,
                                   ),
-                                  onPressed: authState.isLoading ? null : _submit,
-                                  child: authState.isLoading
-                                      ? const SizedBox(
-                                          width: 24,
-                                          height: 24,
-                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                        )
-                                      : Text(
-                                          authState.isLogin ? 'Entrar' : 'Registrar',
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              TextButton(
-                                onPressed: authState.isLoading ? null : authNotifier.toggleAuthMode,
-                                child: Text(
-                                  authState.isLogin
-                                      ? 'Não tem uma conta? Cadastre-se'
-                                      : 'Já tem uma conta? Faça login',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.8),
-                                  ),
-                                ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                        _buildTextField(
+                          controller: _emailController,
+                          label: 'E-mail',
+                          icon: Icons.email_outlined,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (v) => v!.contains('@') ? null : 'E-mail inválido',
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _passwordController,
+                          label: 'Senha',
+                          icon: Icons.lock_outline,
+                          obscureText: !_isPasswordVisible,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                              color: Colors.white.withValues(alpha: 0.5),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _isPasswordVisible = !_isPasswordVisible;
+                              });
+                            },
+                          ),
+                          validator: (v) => v!.length >= 6 ? null : 'Mínimo de 6 caracteres',
+                        ),
+                        const SizedBox(height: 40),
+
+                        // Submit Button
+                        Container(
+                          height: 56,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF6200EA), Color(0xFF9D46FF)],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF6200EA).withValues(alpha: 0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 6),
                               ),
                             ],
                           ),
+                          child: ElevatedButton(
+                            onPressed: authState.isLoading ? null : _submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            child: authState.isLoading
+                                ? const SizedBox(
+                                    height: 24, width: 24,
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                                  )
+                                : Text(
+                                    authState.isLogin ? 'ENTRAR' : 'CADASTRAR',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.5,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 24),
+
+                        // Switch Mode Button
+                        TextButton(
+                          onPressed: _switchMode,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                          ),
+                          child: RichText(
+                            text: TextSpan(
+                              text: authState.isLogin ? 'Não tem uma conta? ' : 'Já possui uma conta? ',
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontFamily: 'Inter'),
+                              children: [
+                                TextSpan(
+                                  text: authState.isLogin ? 'Criar agora' : 'Fazer login',
+                                  style: const TextStyle(
+                                    color: Color(0xFFB388FF),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  InputDecoration _buildInputDecoration(String hint, IconData icon) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-      prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.7)),
-      filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.05),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool obscureText = false,
+    TextInputType? keyboardType,
+    Widget? suffixIcon,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+        prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.5)),
+        suffixIcon: suffixIcon,
+        filled: true,
+        fillColor: const Color(0xFF121212),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.05), width: 1.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF9D46FF), width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+        ),
       ),
-      errorStyle: const TextStyle(color: Colors.redAccent),
+      validator: validator,
     );
   }
 }

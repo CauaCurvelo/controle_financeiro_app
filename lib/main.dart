@@ -26,7 +26,12 @@ class ControleFinanceiroApp extends StatelessWidget {
           seedColor: const Color(0xFF6200EA),
           brightness: Brightness.dark,
         ),
+        scaffoldBackgroundColor: Colors.black,
         fontFamily: 'Inter',
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.black,
+          elevation: 0,
+        ),
         useMaterial3: true,
       ),
       initialRoute: '/auth',

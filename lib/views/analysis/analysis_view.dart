@@ -4,172 +4,180 @@ import 'package:intl/intl.dart';
 import '../../providers/finance_provider.dart';
 import '../../models/transaction.dart';
 
-class AnalysisView extends ConsumerWidget {
+class AnalysisView extends ConsumerStatefulWidget {
   const AnalysisView({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AnalysisView> createState() => _AnalysisViewState();
+}
+
+class _AnalysisViewState extends ConsumerState<AnalysisView> with SingleTickerProviderStateMixin {
+  late AnimationController _fadeController;
+  
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _fadeController.forward();
+  }
+  
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final financeState = ref.watch(financeProvider);
-    final financeNotifier = ref.read(financeProvider.notifier);
     final currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
-    
-    // Calcula o progresso do orçamento (exemplo fixo: Orçamento de R$ 2000.0)
-    const budget = 2000.0;
-    final expenses = financeState.totalExpense;
-    final progress = (expenses / budget).clamp(0.0, 1.0);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.black,
         elevation: 0,
-        title: const Text('Análise e Resultados', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Análise Financeira', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24, letterSpacing: 0.5)),
+        centerTitle: true,
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Resumo de Orçamento',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+      body: FadeTransition(
+        opacity: _fadeController,
+        child: financeState.transactions.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.pie_chart_outline_rounded, size: 80, color: Colors.white.withValues(alpha: 0.1)),
+                    const SizedBox(height: 16),
+                    Text('Sem dados para análise.', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 16)),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                color: const Color(0xFF1E1E1E),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Gasto Atual', style: TextStyle(color: Colors.white70, fontSize: 16)),
-                          Text(currencyFormat.format(expenses), style: const TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Orçamento Limite', style: TextStyle(color: Colors.white70, fontSize: 16)),
-                          Text(currencyFormat.format(budget), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 12,
-                          backgroundColor: Colors.white.withValues(alpha: 0.1),
-                          color: progress > 0.8 ? Colors.redAccent : const Color(0xFF6200EA),
+              )
+            : CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF121212),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                        ),
+                        child: Column(
+                          children: [
+                            const Text('Balanço Geral', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                            const SizedBox(height: 16),
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                SizedBox(
+                                  height: 200,
+                                  width: 200,
+                                  child: CircularProgressIndicator(
+                                    value: financeState.totalIncome > 0 ? financeState.totalIncome / (financeState.totalIncome + financeState.totalExpense) : 0,
+                                    backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+                                    color: Colors.greenAccent,
+                                    strokeWidth: 16,
+                                  ),
+                                ),
+                                Column(
+                                  children: [
+                                    Text('Sobrando', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                                    Text(
+                                      '${((financeState.balance / (financeState.totalIncome == 0 ? 1 : financeState.totalIncome)) * 100).toStringAsFixed(0)}%',
+                                      style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 32),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                _buildIndicator('Receitas', currencyFormat.format(financeState.totalIncome), Colors.greenAccent),
+                                Container(width: 1, height: 40, color: Colors.white24),
+                                _buildIndicator('Despesas', currencyFormat.format(financeState.totalExpense), Colors.redAccent),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${(progress * 100).toStringAsFixed(1)}% utilizado',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Todas as Movimentações',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: financeState.transactions.isEmpty
-                  ? const Center(child: Text('Nenhuma movimentação registrada.', style: TextStyle(color: Colors.white54)))
-                  : ListView.builder(
-                      itemCount: financeState.transactions.length,
-                      itemBuilder: (context, index) {
-                        final transaction = financeState.transactions[index];
-                        final isIncome = transaction.type == TransactionType.income;
-                        
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                      child: Text('Todas as Transações', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final tx = financeState.transactions[index];
+                        final isIncome = tx.type == TransactionType.income;
                         return Dismissible(
-                          key: Key(transaction.id),
+                          key: Key(tx.id),
                           direction: DismissDirection.endToStart,
                           background: Container(
                             alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            color: Colors.redAccent,
-                            child: const Icon(Icons.delete, color: Colors.white),
+                            padding: const EdgeInsets.only(right: 24.0),
+                            color: Colors.redAccent.withValues(alpha: 0.8),
+                            child: const Icon(Icons.delete_outline, color: Colors.white, size: 32),
                           ),
-                          onDismissed: (direction) {
-                            financeNotifier.deleteTransaction(transaction.id);
+                          onDismissed: (_) {
+                            ref.read(financeProvider.notifier).deleteTransaction(tx.id);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Transação removida')),
+                              SnackBar(
+                                content: const Text('Transação apagada com sucesso'),
+                                backgroundColor: const Color(0xFF6200EA),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
                             );
                           },
-                          child: ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(
-                              backgroundColor: isIncome ? Colors.green.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2),
-                              child: Icon(
-                                _getIconForCategory(transaction.category),
-                                color: isIncome ? Colors.greenAccent : Colors.orangeAccent,
-                              ),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF121212),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
                             ),
-                            title: Text(
-                              transaction.title,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                            ),
-                            subtitle: Text(
-                              DateFormat('dd/MM/yyyy').format(transaction.date),
-                              style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-                            ),
-                            trailing: Text(
-                              '${isIncome ? '+' : '-'}${currencyFormat.format(transaction.amount)}',
-                              style: TextStyle(
-                                color: isIncome ? Colors.greenAccent : Colors.redAccent,
-                                fontWeight: FontWeight.bold,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              title: Text(tx.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              subtitle: Text(DateFormat('dd/MM/yyyy HH:mm').format(tx.date), style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12)),
+                              trailing: Text(
+                                '${isIncome ? '+' : '-'}${currencyFormat.format(tx.amount)}',
+                                style: TextStyle(
+                                  color: isIncome ? Colors.greenAccent : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
                           ),
                         );
                       },
+                      childCount: financeState.transactions.length,
                     ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 40)),
+                ],
               ),
-            ],
-          ),
-        ),
       ),
     );
   }
 
-  IconData _getIconForCategory(String category) {
-    switch (category) {
-      case 'Alimentação':
-        return Icons.restaurant;
-      case 'Contas':
-        return Icons.receipt;
-      case 'Salário':
-        return Icons.attach_money;
-      case 'Saúde':
-        return Icons.local_hospital;
-      case 'Lazer':
-        return Icons.movie;
-      default:
-        return Icons.category;
-    }
+  Widget _buildIndicator(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14)),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w900)),
+      ],
+    );
   }
 }
