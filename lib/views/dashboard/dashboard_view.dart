@@ -16,14 +16,14 @@ class DashboardView extends ConsumerStatefulWidget {
 
 class _DashboardViewState extends ConsumerState<DashboardView> with SingleTickerProviderStateMixin {
   late AnimationController _fadeController;
-  
+
   @override
   void initState() {
     super.initState();
     _fadeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
     _fadeController.forward();
   }
-  
+
   @override
   void dispose() {
     _fadeController.dispose();
@@ -38,127 +38,141 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: ColoredBox(
-        color: Colors.black,
-        child: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            backgroundColor: Colors.black,
-            expandedHeight: 80,
-            floating: true,
-            title: FadeTransition(
-              opacity: _fadeController,
-              child: const Text(
-                'Dashboard', 
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 28, letterSpacing: 1),
-              ),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.analytics_outlined, color: Colors.white, size: 28),
-                onPressed: () => Navigator.pushNamed(context, '/analysis'),
-              ),
-              IconButton(
-                icon: const Icon(Icons.logout_rounded, color: Colors.white70, size: 26),
-                onPressed: () {
-                  ref.read(authProvider.notifier).logout();
-                  Navigator.pushReplacementNamed(context, '/auth');
-                },
-              ),
-              const SizedBox(width: 8),
-            ],
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        title: const Text(
+          'Dashboard',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 28,
+            letterSpacing: 1,
+            color: Colors.white,
           ),
-          SliverToBoxAdapter(
-            child: FadeTransition(
-              opacity: _fadeController,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Balance Card
-                    _buildBalanceCard(financeState, currencyFormat),
-                    
-                    const SizedBox(height: 32),
-                    
-                    // Market Indicators
-                    const Text(
-                      'Indicadores de Mercado',
-                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildMarketIndicators(marketAsyncValue),
-                    
-                    const SizedBox(height: 32),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.analytics_outlined, color: Colors.white, size: 28),
+            onPressed: () => Navigator.pushNamed(context, '/analysis'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.white70, size: 26),
+            onPressed: () {
+              ref.read(authProvider.notifier).logout();
+              Navigator.pushReplacementNamed(context, '/auth');
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
 
-                    // Recent Transactions Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // Balance Card
+              _buildBalanceCard(financeState, currencyFormat),
+
+              const SizedBox(height: 32),
+
+              // Market Indicators
+              const Text(
+                'Indicadores de Mercado',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildMarketIndicators(marketAsyncValue),
+
+              const SizedBox(height: 32),
+
+              // Recent Transactions Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Transações Recentes',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/analysis'),
+                    child: const Text(
+                      'Ver todas',
+                      style: TextStyle(color: Color(0xFFB388FF)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Transactions List - inline Column, zero Sliver conflicts
+              if (financeState.isLoading)
+                ...List.generate(3, (_) => _buildTransactionSkeleton())
+              else if (financeState.transactions.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48.0),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'Transações Recentes',
-                          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                        Icon(
+                          Icons.receipt_long_outlined,
+                          size: 64,
+                          color: Colors.white.withValues(alpha: 0.15),
                         ),
-                        TextButton(
-                          onPressed: () => Navigator.pushNamed(context, '/analysis'),
-                          child: const Text('Ver todas', style: TextStyle(color: Color(0xFFB388FF))),
-                        )
+                        const SizedBox(height: 16),
+                        Text(
+                          'Nenhuma transação encontrada.',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Toque em + Novo para começar',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                  ],
+                  ),
+                )
+              else
+                ...List.generate(
+                  min(financeState.transactions.length, 5),
+                  (index) {
+                    final tx = financeState.transactions[index];
+                    final isIncome = tx.type == TransactionType.income;
+                    return _buildTransactionItem(tx, isIncome, currencyFormat);
+                  },
                 ),
-              ),
-            ),
+
+              const SizedBox(height: 100),
+            ],
           ),
-          
-          // Transactions List
-          if (financeState.isLoading)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Column(
-                children: List.generate(3, (_) => _buildTransactionSkeleton()),
-              ),
-            )
-          else if (financeState.transactions.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Container(
-                color: Colors.black,
-                alignment: Alignment.topCenter,
-                padding: const EdgeInsets.only(top: 40),
-                child: Column(
-                  children: [
-                    Icon(Icons.receipt_long_outlined, size: 64, color: Colors.white.withValues(alpha: 0.2)),
-                    const SizedBox(height: 16),
-                    Text('Nenhuma transação encontrada.', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
-                    const SizedBox(height: 8),
-                    Text('Toque em + Novo para começar', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13)),
-                  ],
-                ),
-              ),
-            )
-          else
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final transaction = financeState.transactions[index];
-                  final isIncome = transaction.type == TransactionType.income;
-                  return _buildTransactionItem(transaction, isIncome, currencyFormat, index);
-                },
-                childCount: min(financeState.transactions.length, 5),
-              ),
-            ),
-            
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
-        ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFF6200EA),
         elevation: 8,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Novo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text(
+          'Novo',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         onPressed: () => _showAddTransactionSheet(context, ref),
       ),
     );
@@ -187,21 +201,40 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
         children: [
           Text(
             'Saldo Atual',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 8),
           state.isLoading
-            ? _buildSkeleton(150, 40)
-            : Text(
-                format.format(state.balance),
-                style: const TextStyle(color: Colors.white, fontSize: 38, fontWeight: FontWeight.w900, letterSpacing: -1),
-              ),
+              ? _buildSkeleton(150, 40)
+              : Text(
+                  format.format(state.balance),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 38,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -1,
+                  ),
+                ),
           const SizedBox(height: 32),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildIncomeExpense('Receitas', state.isLoading ? null : format.format(state.totalIncome), Icons.arrow_upward_rounded, Colors.greenAccent),
-              _buildIncomeExpense('Despesas', state.isLoading ? null : format.format(state.totalExpense), Icons.arrow_downward_rounded, Colors.redAccent),
+              _buildIncomeExpense(
+                'Receitas',
+                state.isLoading ? null : format.format(state.totalIncome),
+                Icons.arrow_upward_rounded,
+                Colors.greenAccent,
+              ),
+              _buildIncomeExpense(
+                'Despesas',
+                state.isLoading ? null : format.format(state.totalExpense),
+                Icons.arrow_downward_rounded,
+                Colors.redAccent,
+              ),
             ],
           ),
         ],
@@ -224,11 +257,21 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+            Text(
+              title,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
+            ),
             const SizedBox(height: 2),
-            amount == null 
-              ? _buildSkeleton(80, 16)
-              : Text(amount, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+            amount == null
+                ? _buildSkeleton(80, 16)
+                : Text(
+                    amount,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
           ],
         ),
       ],
@@ -265,8 +308,8 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
                       color: Colors.black.withValues(alpha: 0.5),
                       blurRadius: 10,
                       offset: const Offset(0, 5),
-                    )
-                  ]
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,16 +317,40 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
                   children: [
                     Row(
                       children: [
-                        Text(ind.code, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text(
+                          ind.code,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                         const Spacer(),
-                        Icon(ind.isPositive ? Icons.trending_up : Icons.trending_down, 
-                             color: ind.isPositive ? Colors.greenAccent : Colors.redAccent, size: 20),
+                        Icon(
+                          ind.isPositive ? Icons.trending_up : Icons.trending_down,
+                          color: ind.isPositive ? Colors.greenAccent : Colors.redAccent,
+                          size: 20,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text('R\$ ${ind.value}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                    Text(
+                      'R\$ ${ind.value}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('${ind.variation} hoje', style: TextStyle(color: ind.isPositive ? Colors.greenAccent : Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text(
+                      '${ind.variation} hoje',
+                      style: TextStyle(
+                        color: ind.isPositive ? Colors.greenAccent : Colors.redAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -304,54 +371,78 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
       ),
       error: (e, s) => Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: const Color(0xFF121212), borderRadius: BorderRadius.circular(16)),
-        child: const Text('Falha ao conectar com o mercado.', style: TextStyle(color: Colors.white54)),
+        decoration: BoxDecoration(
+          color: const Color(0xFF121212),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Text(
+          'Falha ao conectar com o mercado.',
+          style: TextStyle(color: Colors.white54),
+        ),
       ),
     );
   }
 
-  Widget _buildTransactionItem(TransactionItem tx, bool isIncome, NumberFormat format, int index) {
+  Widget _buildTransactionItem(TransactionItem tx, bool isIncome, NumberFormat format) {
     return Container(
-        margin: const EdgeInsets.only(bottom: 12, left: 20, right: 20),
-        decoration: BoxDecoration(
-          color: const Color(0xFF121212),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
-        ),
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          leading: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isIncome ? Colors.greenAccent.withValues(alpha: 0.1) : Colors.redAccent.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isIncome ? Icons.south_west_rounded : Icons.north_east_rounded,
-              color: isIncome ? Colors.greenAccent : Colors.redAccent,
-              size: 24,
-            ),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121212),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isIncome
+                ? Colors.greenAccent.withValues(alpha: 0.1)
+                : Colors.redAccent.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
           ),
-          title: Text(tx.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-          subtitle: Text(tx.category, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13)),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${isIncome ? '+' : '-'}${format.format(tx.amount)}',
-                style: TextStyle(
-                  color: isIncome ? Colors.greenAccent : Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                ),
+          child: Icon(
+            isIncome ? Icons.south_west_rounded : Icons.north_east_rounded,
+            color: isIncome ? Colors.greenAccent : Colors.redAccent,
+            size: 24,
+          ),
+        ),
+        title: Text(
+          tx.title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        subtitle: Text(
+          tx.category,
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '${isIncome ? '+' : '-'}${format.format(tx.amount)}',
+              style: TextStyle(
+                color: isIncome ? Colors.greenAccent : Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
               ),
-              const SizedBox(height: 4),
-              Text(DateFormat('dd MMM', 'pt_BR').format(tx.date), style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12)),
-            ],
-          ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              DateFormat('dd MMM', 'pt_BR').format(tx.date),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.4),
+                fontSize: 12,
+              ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildSkeleton(double width, double height, {double radius = 8}) {
@@ -364,21 +455,27 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
       ),
     );
   }
-  
+
   Widget _buildTransactionSkeleton() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12, left: 20, right: 20),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF121212), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121212),
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         children: [
           _buildSkeleton(48, 48, radius: 24),
           const SizedBox(width: 16),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _buildSkeleton(100, 16),
-            const SizedBox(height: 8),
-            _buildSkeleton(60, 12),
-          ]),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSkeleton(100, 16),
+              const SizedBox(height: 8),
+              _buildSkeleton(60, 12),
+            ],
+          ),
           const Spacer(),
           _buildSkeleton(80, 20),
         ],
@@ -392,30 +489,49 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
     final amountController = TextEditingController();
     String category = 'Alimentação';
     TransactionType type = TransactionType.expense;
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF121212),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setState) {
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(ctx).viewInsets.bottom,
-                left: 24, right: 24, top: 32,
+                left: 24,
+                right: 24,
+                top: 32,
               ),
               child: Form(
                 key: formKey,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
                     const SizedBox(height: 24),
-                    const Text('Nova Transação', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+                    const Text(
+                      'Nova Transação',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                     const SizedBox(height: 32),
-                    
+
+                    // Type Toggle
                     Row(
                       children: [
                         Expanded(
@@ -424,12 +540,21 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
-                                color: type == TransactionType.expense ? Colors.redAccent.withValues(alpha: 0.1) : Colors.transparent,
-                                border: Border.all(color: type == TransactionType.expense ? Colors.redAccent : Colors.white12),
+                                color: type == TransactionType.expense
+                                    ? Colors.redAccent.withValues(alpha: 0.1)
+                                    : Colors.transparent,
+                                border: Border.all(
+                                  color: type == TransactionType.expense
+                                      ? Colors.redAccent
+                                      : Colors.white12,
+                                ),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               alignment: Alignment.center,
-                              child: const Text('Despesa', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              child: const Text(
+                                'Despesa',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
                             ),
                           ),
                         ),
@@ -440,12 +565,21 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
-                                color: type == TransactionType.income ? Colors.greenAccent.withValues(alpha: 0.1) : Colors.transparent,
-                                border: Border.all(color: type == TransactionType.income ? Colors.greenAccent : Colors.white12),
+                                color: type == TransactionType.income
+                                    ? Colors.greenAccent.withValues(alpha: 0.1)
+                                    : Colors.transparent,
+                                border: Border.all(
+                                  color: type == TransactionType.income
+                                      ? Colors.greenAccent
+                                      : Colors.white12,
+                                ),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               alignment: Alignment.center,
-                              child: const Text('Receita', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              child: const Text(
+                                'Receita',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
                             ),
                           ),
                         ),
@@ -483,7 +617,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
                           .toList(),
                       onChanged: (v) => setState(() => category = v!),
                     ),
-                    
+
                     const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
@@ -507,7 +641,15 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
                             Navigator.pop(ctx);
                           }
                         },
-                        child: const Text('Confirmar Transação', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                        child: const Text(
+                          'Confirmar Transação',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -515,7 +657,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
                 ),
               ),
             );
-          }
+          },
         );
       },
     );
