@@ -38,7 +38,9 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: CustomScrollView(
+      body: ColoredBox(
+        color: Colors.black,
+        child: CustomScrollView(
         slivers: [
           SliverAppBar(
             backgroundColor: Colors.black,
@@ -112,24 +114,27 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
           
           // Transactions List
           if (financeState.isLoading)
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildTransactionSkeleton(),
-                childCount: 3,
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Column(
+                children: List.generate(3, (_) => _buildTransactionSkeleton()),
               ),
             )
           else if (financeState.transactions.isEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40.0),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(Icons.receipt_long_outlined, size: 64, color: Colors.white.withValues(alpha: 0.2)),
-                      const SizedBox(height: 16),
-                      Text('Nenhuma transação encontrada.', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
-                    ],
-                  ),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Container(
+                color: Colors.black,
+                alignment: Alignment.topCenter,
+                padding: const EdgeInsets.only(top: 40),
+                child: Column(
+                  children: [
+                    Icon(Icons.receipt_long_outlined, size: 64, color: Colors.white.withValues(alpha: 0.2)),
+                    const SizedBox(height: 16),
+                    Text('Nenhuma transação encontrada.', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+                    const SizedBox(height: 8),
+                    Text('Toque em + Novo para começar', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 13)),
+                  ],
                 ),
               ),
             )
@@ -147,6 +152,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
             
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFF6200EA),
