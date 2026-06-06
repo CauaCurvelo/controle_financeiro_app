@@ -386,61 +386,80 @@ class _DashboardViewState extends ConsumerState<DashboardView> with SingleTicker
   Widget _buildTransactionItem(TransactionItem tx, bool isIncome, NumberFormat format) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: const Color(0xFF121212),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isIncome
-                ? Colors.greenAccent.withValues(alpha: 0.1)
-                : Colors.redAccent.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            isIncome ? Icons.south_west_rounded : Icons.north_east_rounded,
-            color: isIncome ? Colors.greenAccent : Colors.redAccent,
-            size: 24,
-          ),
-        ),
-        title: Text(
-          tx.title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-        subtitle: Text(
-          tx.category,
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '${isIncome ? '+' : '-'}${format.format(tx.amount)}',
-              style: TextStyle(
-                color: isIncome ? Colors.greenAccent : Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 16,
-              ),
+      child: Row(
+        children: [
+          // Icon
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isIncome
+                  ? Colors.greenAccent.withValues(alpha: 0.1)
+                  : Colors.redAccent.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 4),
-            Text(
-              DateFormat('dd MMM', 'pt_BR').format(tx.date),
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 12,
-              ),
+            child: Icon(
+              isIncome ? Icons.south_west_rounded : Icons.north_east_rounded,
+              color: isIncome ? Colors.greenAccent : Colors.redAccent,
+              size: 22,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 14),
+          // Title + Category
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  tx.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  tx.category,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Amount + Date
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${isIncome ? '+' : '-'}${format.format(tx.amount)}',
+                style: TextStyle(
+                  color: isIncome ? Colors.greenAccent : Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                DateFormat('dd MMM', 'pt_BR').format(tx.date),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
