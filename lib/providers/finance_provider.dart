@@ -75,7 +75,7 @@ class FinanceNotifier extends Notifier<FinanceState> {
   
   Future<void> updateTransaction(TransactionItem transaction) async {
     if (userId == null) return;
-    await DBHelper().updateTransaction(transaction);
+    await DBHelper().insertTransaction(transaction, userId!); // insertTransaction faz upsert
     await _loadTransactions();
     CloudSyncService.syncToCloud(userId!, state.transactions);
   }

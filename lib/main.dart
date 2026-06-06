@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'views/auth/auth_view.dart';
 import 'views/dashboard/dashboard_view.dart';
 import 'views/analysis/analysis_view.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('pt_BR', null);
   runApp(
     const ProviderScope(
       child: ControleFinanceiroApp(),

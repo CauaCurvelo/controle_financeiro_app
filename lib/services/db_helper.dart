@@ -1,112 +1,106 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction.dart';
 
+/// Camada de persistência local usando SharedPreferences (suporta Web, Android, iOS)
 class DBHelper {
   static final DBHelper _instance = DBHelper._internal();
-  static Database? _database;
-
-  factory DBHelper() {
-    return _instance;
-  }
-
+  factory DBHelper() => _instance;
   DBHelper._internal();
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDatabase();
-    return _database!;
+  // ─── User Keys ───────────────────────────────────────────
+  static const _usersKey = 'cf_users';
+  static const _userIdCounterKey = 'cf_user_id_counter';
+
+  // ─── Helpers ──────────────────────────────────────────────
+  Future<SharedPreferences> get _prefs async => SharedPreferences.getInstance();
+
+  Future<List<Map<String, dynamic>>> _getUsers() async {
+    final prefs = await _prefs;
+    final raw = prefs.getString(_usersKey);
+    if (raw == null) return [];
+    return List<Map<String, dynamic>>.from(json.decode(raw));
   }
 
-  Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'finance_app.db');
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _onCreate,
-    );
+  Future<void> _saveUsers(List<Map<String, dynamic>> users) async {
+    final prefs = await _prefs;
+    await prefs.setString(_usersKey, json.encode(users));
   }
 
-  Future<void> _onCreate(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE users(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        email TEXT UNIQUE,
-        password TEXT
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE transactions(
-        id TEXT PRIMARY KEY,
-        userId INTEGER,
-        title TEXT,
-        amount REAL,
-        date TEXT,
-        type TEXT,
-        category TEXT,
-        FOREIGN KEY (userId) REFERENCES users(id)
-      )
-    ''');
-  }
-
-  // User Methods
+  // ─── User Methods ─────────────────────────────────────────
   Future<int> insertUser(Map<String, dynamic> user) async {
-    final db = await database;
-    return await db.insert('users', user);
+    final prefs = await _prefs;
+    final users = await _getUsers();
+
+    // Check if email already exists
+    final exists = users.any((u) => u['email'] == user['email']);
+    if (exists) throw Exception('Email já cadastrado.');
+
+    int counter = (prefs.getInt(_userIdCounterKey) ?? 0) + 1;
+    await prefs.setInt(_userIdCounterKey, counter);
+
+    final newUser = {...user, 'id': counter};
+    users.add(newUser);
+    await _saveUsers(users);
+    return counter;
   }
 
   Future<Map<String, dynamic>?> getUser(String email, String password) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'users',
-      where: 'email = ? AND password = ?',
-      whereArgs: [email, password],
-    );
-    if (maps.isNotEmpty) {
-      return maps.first;
+    final users = await _getUsers();
+    try {
+      return users.firstWhere(
+        (u) => u['email'] == email && u['password'] == password,
+      );
+    } catch (_) {
+      return null;
     }
-    return null;
   }
 
-  // Transaction Methods
+  // ─── Transaction Methods ──────────────────────────────────
+  String _txKey(int userId) => 'cf_transactions_$userId';
+
+  Future<List<Map<String, dynamic>>> _getRawTransactions(int userId) async {
+    final prefs = await _prefs;
+    final raw = prefs.getString(_txKey(userId));
+    if (raw == null) return [];
+    return List<Map<String, dynamic>>.from(json.decode(raw));
+  }
+
+  Future<void> _saveRawTransactions(int userId, List<Map<String, dynamic>> txs) async {
+    final prefs = await _prefs;
+    await prefs.setString(_txKey(userId), json.encode(txs));
+  }
+
   Future<void> insertTransaction(TransactionItem transaction, int userId) async {
-    final db = await database;
+    final txs = await _getRawTransactions(userId);
     final map = transaction.toMap();
     map['userId'] = userId;
-    await db.insert('transactions', map, conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-
-  Future<void> updateTransaction(TransactionItem transaction) async {
-    final db = await database;
-    await db.update(
-      'transactions',
-      transaction.toMap(),
-      where: 'id = ?',
-      whereArgs: [transaction.id],
-    );
+    // Remove if exists (upsert)
+    txs.removeWhere((t) => t['id'] == map['id']);
+    txs.insert(0, map);
+    await _saveRawTransactions(userId, txs);
   }
 
   Future<void> deleteTransaction(String id) async {
-    final db = await database;
-    await db.delete(
-      'transactions',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final prefs = await _prefs;
+    final keys = prefs.getKeys().where((k) => k.startsWith('cf_transactions_'));
+    for (final key in keys) {
+      final raw = prefs.getString(key);
+      if (raw == null) continue;
+      final txs = List<Map<String, dynamic>>.from(json.decode(raw));
+      final before = txs.length;
+      txs.removeWhere((t) => t['id'] == id);
+      if (txs.length != before) {
+        await prefs.setString(key, json.encode(txs));
+        return;
+      }
+    }
   }
 
   Future<List<TransactionItem>> getTransactions(int userId) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'transactions',
-      where: 'userId = ?',
-      whereArgs: [userId],
-      orderBy: 'date DESC',
-    );
-    return List.generate(maps.length, (i) {
-      return TransactionItem.fromMap(maps[i]);
-    });
+    final txs = await _getRawTransactions(userId);
+    // Sort by date descending
+    txs.sort((a, b) => b['date'].compareTo(a['date']));
+    return txs.map((m) => TransactionItem.fromMap(m)).toList();
   }
 }
